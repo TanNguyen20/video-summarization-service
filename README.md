@@ -136,35 +136,42 @@ See [`.env.example`](.env.example) for the full list.
 ## Project Structure
 
 ```
-├── main.py                    # Entry point
+├── main.py                        # Entry point (uvicorn launcher)
 ├── requirements.txt
-├── alembic.ini                # Alembic configuration
+├── alembic.ini                    # Alembic configuration
 ├── .env.example
 ├── alembic/
-│   ├── env.py                 # Async migration environment
-│   ├── script.py.mako         # Migration template
+│   ├── env.py                     # Async migration environment
+│   ├── script.py.mako             # Migration template
 │   └── versions/
 │       └── 001_create_tasks_table.py
 ├── app/
 │   ├── api/
-│   │   └── routes.py          # FastAPI endpoints + lifespan
+│   │   ├── app.py                 # FastAPI factory, lifespan, shared state
+│   │   └── endpoints/
+│   │       ├── system.py          # GET /health
+│   │       ├── summarization.py   # POST /api/v1/summarize + background worker
+│   │       └── tasks.py           # GET status + GET download
 │   ├── core/
-│   │   ├── config.py          # Pydantic settings (incl. DATABASE_URL)
-│   │   └── logging.py         # Logging setup
+│   │   ├── config.py              # Pydantic settings (incl. DATABASE_URL)
+│   │   └── logging.py             # Logging setup
 │   ├── db/
-│   │   ├── models.py          # SQLAlchemy ORM models
-│   │   └── session.py         # Async engine & session factory
+│   │   ├── models.py              # SQLAlchemy ORM models
+│   │   └── session.py             # Async engine & session factory
 │   ├── models/
-│   │   └── schemas.py         # Pydantic request / response models
+│   │   └── schemas.py             # Pydantic request / response models
 │   ├── patterns/
-│   │   ├── interfaces.py      # Abstract strategies (ABC)
-│   │   ├── adapters.py        # Concrete implementations
-│   │   └── factory.py         # Component factory
+│   │   ├── interfaces.py          # Abstract strategies (ABC)
+│   │   ├── factory.py             # Component factory
+│   │   └── adapters/
+│   │       ├── transcription.py   # WhisperX adapter
+│   │       ├── summarization.py   # Ollama LLM adapter
+│   │       └── tts.py             # gTTS + FPT Cloud adapters
 │   └── services/
-│       ├── pipeline.py        # Orchestration pipeline
-│       └── task_store.py      # TaskRepository (PostgreSQL)
-├── uploads/                   # Uploaded videos (gitignored)
-└── outputs/                   # Summarized videos (gitignored)
+│       ├── pipeline.py            # Orchestration pipeline
+│       └── task_store.py          # TaskRepository (PostgreSQL)
+├── uploads/                       # Uploaded videos (gitignored)
+└── outputs/                       # Summarized videos (gitignored)
 ```
 
 ## License
