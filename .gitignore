@@ -1,0 +1,64 @@
+# ==========================================
+# Project Specific (Video & Audio Processing)
+# ==========================================
+# Ignore user uploaded and processed videos
+/uploads/*
+!/uploads/.gitkeep
+/outputs/*
+!/outputs/.gitkeep
+
+# Ignore temporary audio/video files created during pipeline processing
+temp_*.wav
+temp_*.mp3
+temp_*.mp4
+
+# ==========================================
+# Environment Variables & Secrets
+# ==========================================
+.env
+.env.*
+!.env.example
+
+# ==========================================
+# Python / FastAPI Standard
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual Environments
+venv/
+.venv/
+env/
+.env/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Pytest / Coverage (if you add tests later)
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ==========================================
+# Machine Learning / AI Caches
+# ==========================================
+# HuggingFace/WhisperX model caches (if downloaded locally to project dir)
+.huggingface/
+.cache/
+
+# ==========================================
+# IDEs & OS Files
+# ==========================================
+# VS Code
+.vscode/
+
+# PyCharm / IntelliJ
+.idea/
+*.iml
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
