@@ -1,21 +1,20 @@
+"""Summarization endpoint — upload and enqueue pipeline."""
+
 import asyncio
 import os
 import uuid
-from contextlib import asynccontextmanager
 
 from fastapi import (
+    APIRouter,
     BackgroundTasks,
-    FastAPI,
     File,
     HTTPException,
     Query,
     UploadFile,
 )
-from fastapi.responses import FileResponse
 
 from app.core.config import settings
-from app.core.logging import get_logger, setup_logging
-from app.db.session import dispose_db, init_db
+from app.core.logging import get_logger
 from app.models.schemas import (
     SummarizationOptions,
     TaskResponse,
@@ -23,36 +22,9 @@ from app.models.schemas import (
 )
 from app.patterns.factory import ComponentFactory
 from app.services.pipeline import VideoSummarizationPipeline
-from app.services.task_store import TaskRepository
 
-# ── Bootstrap ──────────────────────────────────────────────
-setup_logging(settings.LOG_LEVEL)
-logger = get_logger("api")
-
-
-@asynccontextmanager
-async def lifespan(application: FastAPI):
-    """Manage database connection pool lifecycle."""
-    logger.info("Initializing database...")
-    await init_db()
-    logger.info("Database ready")
-    yield
-    logger.info("Shutting down database...")
-    await dispose_db()
-    logger.info("Database connection closed")
-
-
-app = FastAPI(
-    title=settings.PROJECT_NAME,
-    version=settings.VERSION,
-    description="Upload a video and receive a concise summarized version with TTS narration.",
-    lifespan=lifespan,
-)
-
-task_store = TaskRepository()
-
-os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
-os.makedirs(settings.OUTPUT_DIR, exist_ok=True)
+logger = get_logger("api.summarization")
+router = APIRouter(prefix="/api/v1", tags=["Summarization"])
 
 
 # ── Background worker ─────────────────────────────────────
@@ -65,10 +37,12 @@ async def _run_pipeline(
 ) -> None:
     """Async background task that runs the video summarization pipeline.
 
-    DB updates are native async.  The blocking pipeline.process() call is
-    offloaded to a thread via ``asyncio.to_thread`` so the event loop stays
-    responsive.
+    DB updates are native async.  The blocking ``pipeline.process()`` call
+    is offloaded to a thread via ``asyncio.to_thread`` so the event loop
+    stays responsive.
     """
+    from app.api.app import task_store  # deferred to avoid circular import
+
     try:
         await task_store.update(task_id, status=TaskStatusEnum.PROCESSING)
         logger.info("Pipeline started for task %s", task_id)
@@ -104,36 +78,9 @@ async def _run_pipeline(
             logger.debug("Removed upload: %s", input_path)
 
 
-# ── Routes ─────────────────────────────────────────────────
+# ── Route ─────────────────────────────────────────────────
 
-@app.get("/health", tags=["System"])
-async def health_check():
-    """Health-check endpoint with database connectivity status."""
-    db_ok = False
-    try:
-        from sqlalchemy import text
-
-        from app.db.session import engine
-
-        async with engine.connect() as conn:
-            await conn.execute(text("SELECT 1"))
-        db_ok = True
-    except Exception:
-        logger.warning("Health check: database unreachable")
-
-    return {
-        "status": "healthy" if db_ok else "degraded",
-        "version": settings.VERSION,
-        "database": "connected" if db_ok else "disconnected",
-    }
-
-
-@app.post(
-    "/api/v1/summarize",
-    response_model=TaskResponse,
-    status_code=202,
-    tags=["Summarization"],
-)
+@router.post("/summarize", response_model=TaskResponse, status_code=202)
 async def upload_and_summarize(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
@@ -143,6 +90,7 @@ async def upload_and_summarize(
     language: str = Query("vi", description="Language code for TTS"),
 ):
     """Upload a video and start the summarization pipeline."""
+    from app.api.app import task_store
 
     # ── Validate extension ────────────────────────────────
     filename = file.filename or ""
@@ -208,40 +156,3 @@ async def upload_and_summarize(
     background_tasks.add_task(_run_pipeline, task_id, input_path, output_path, options)
 
     return TaskResponse(task_id=task_id, status=TaskStatusEnum.QUEUED)
-
-
-@app.get(
-    "/api/v1/tasks/{task_id}",
-    response_model=TaskResponse,
-    tags=["Tasks"],
-)
-async def get_task_status(task_id: str):
-    """Check the status of a summarization task."""
-    task = await task_store.get(task_id)
-    if task is None:
-        raise HTTPException(status_code=404, detail="Task not found")
-    return TaskResponse(task_id=task_id, **task)
-
-
-@app.get("/api/v1/tasks/{task_id}/download", tags=["Tasks"])
-async def download_result(task_id: str):
-    """Download the summarized video for a completed task."""
-    task = await task_store.get(task_id)
-    if task is None:
-        raise HTTPException(status_code=404, detail="Task not found")
-
-    if task["status"] != TaskStatusEnum.COMPLETED:
-        raise HTTPException(
-            status_code=409,
-            detail=f"Task is not completed (status: {task['status'].value})",
-        )
-
-    output_path = os.path.join(settings.OUTPUT_DIR, f"{task_id}_summary.mp4")
-    if not os.path.exists(output_path):
-        raise HTTPException(status_code=404, detail="Output file not found")
-
-    return FileResponse(
-        path=output_path,
-        media_type="video/mp4",
-        filename=f"{task_id}_summary.mp4",
-    )

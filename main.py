@@ -2,7 +2,7 @@
 
 Usage:
     python main.py
-    uvicorn app.api.routes:app --reload
+    uvicorn app.api.app:app --reload
 """
 
 import uvicorn
@@ -12,7 +12,7 @@ from app.core.config import settings
 
 def main() -> None:
     uvicorn.run(
-        "app.api.routes:app",
+        "app.api.app:app",
         host=settings.HOST,
         port=settings.PORT,
         reload=True,
