@@ -6,37 +6,39 @@ video with AI-generated narration.
 ## Architecture
 
 ```mermaid
-flowchart TB
-    Upload["🎬 Video Upload"]
+flowchart LR
+    Upload(["🎬 Video Upload"])
 
-    subgraph Transcription["1. Transcription"]
-        T1["WhisperX\n(local)"]
-        T2["OpenAI\nWhisper API"]
-        T3["AssemblyAI"]
-        T4["Google\nGemini"]
+    subgraph Transcription["1 · Transcription"]
+        direction TB
+        T1["🖥️ WhisperX — local"]
+        T2["☁️ OpenAI Whisper"]
+        T3["☁️ AssemblyAI"]
+        T4["☁️ Google Gemini"]
+        T1 ~~~ T2 ~~~ T3 ~~~ T4
     end
 
-    subgraph Summarization["2. Summarization"]
-        S1["Ollama\n(local)"]
-        S2["OpenAI\nGPT-4o"]
-        S3["Google\nGemini"]
+    subgraph Summarization["2 · Summarization"]
+        direction TB
+        S1["🖥️ Ollama — local"]
+        S2["☁️ OpenAI GPT-4o"]
+        S3["☁️ Google Gemini"]
+        S1 ~~~ S2 ~~~ S3
     end
 
-    subgraph TTS["3. Text-to-Speech"]
-        TTS1["gTTS\n(local)"]
-        TTS2["FPT.AI"]
-        TTS3["OpenAI\nTTS"]
-        TTS4["ElevenLabs"]
+    subgraph TTS["3 · Text-to-Speech"]
+        direction TB
+        TTS1["🖥️ gTTS — local"]
+        TTS2["☁️ FPT.AI"]
+        TTS3["☁️ OpenAI TTS"]
+        TTS4["☁️ ElevenLabs"]
+        TTS1 ~~~ TTS2 ~~~ TTS3 ~~~ TTS4
     end
 
-    Compose["🎥 MoviePy Compose"]
-    Output["✅ Summarized Video"]
+    Compose(["🎥 MoviePy Compose"])
+    Output(["✅ Summarized Video"])
 
-    Upload --> Transcription
-    Transcription --> Summarization
-    Summarization --> TTS
-    TTS --> Compose
-    Compose --> Output
+    Upload --> Transcription --> Summarization --> TTS --> Compose --> Output
 ```
 
 ### Provider Matrix
