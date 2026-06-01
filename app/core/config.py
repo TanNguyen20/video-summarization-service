@@ -26,10 +26,13 @@ class Settings(BaseSettings):
     # ── Cloud Providers ────────────────────────────────────
     OPENAI_API_KEY: str | None = None
     OPENAI_MODEL: str = "gpt-4o"
+    OPENAI_TTS_VOICE: str = "alloy"
     GEMINI_API_KEY: str | None = None
     GEMINI_MODEL: str = "gemini-2.0-flash"
     ASSEMBLYAI_API_KEY: str | None = None
     FPT_API_KEY: str | None = None
+    ELEVENLABS_API_KEY: str | None = None
+    ELEVENLABS_VOICE_ID: str = "JBFqnCBsd6RMkjVDRZzb"
 
     # ── Whisper ─────────────────────────────────────────────
     WHISPER_MODEL_SIZE: str = "large-v2"

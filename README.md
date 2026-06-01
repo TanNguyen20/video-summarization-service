@@ -27,7 +27,9 @@ flowchart LR
     subgraph TTS["3. Text-to-Speech"]
         direction TB
         TTS1["gTTS (local)"]
-        TTS2["FPT.AI Cloud"]
+        TTS2["FPT.AI"]
+        TTS3["OpenAI TTS"]
+        TTS4["ElevenLabs"]
     end
 
     Compose["🎥 MoviePy Compose"]
@@ -47,8 +49,10 @@ flowchart LR
 | Summarization | `local` | Ollama (Llama 3, etc.) | Local Ollama server |
 | Summarization | `openai` | OpenAI GPT-4o | `OPENAI_API_KEY` |
 | Summarization | `gemini` | Google Gemini | `GEMINI_API_KEY` |
-| TTS | `local` | gTTS (Google Text-to-Speech) | Internet connection |
-| TTS | `cloud` | FPT.AI TTS | `FPT_API_KEY` |
+| TTS | `local` | gTTS (Google Translate TTS) | Internet connection |
+| TTS | `fpt` | FPT.AI TTS | `FPT_API_KEY` |
+| TTS | `openai` | OpenAI TTS (tts-1 / tts-1-hd) | `OPENAI_API_KEY` |
+| TTS | `elevenlabs` | ElevenLabs (multilingual v2) | `ELEVENLABS_API_KEY` |
 
 ### Design Patterns
 

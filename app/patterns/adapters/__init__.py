@@ -11,7 +11,12 @@ from app.patterns.adapters.summarization import (
     LocalLLMAdapter,
     OpenAISummarizationAdapter,
 )
-from app.patterns.adapters.tts import FPTCloudTTSAdapter, LocalTTSAdapter
+from app.patterns.adapters.tts import (
+    ElevenLabsTTSAdapter,
+    FPTCloudTTSAdapter,
+    LocalTTSAdapter,
+    OpenAITTSAdapter,
+)
 
 __all__ = [
     # Transcription
@@ -24,6 +29,8 @@ __all__ = [
     "OpenAISummarizationAdapter",
     "GeminiSummarizationAdapter",
     # TTS
-    "FPTCloudTTSAdapter",
     "LocalTTSAdapter",
+    "FPTCloudTTSAdapter",
+    "OpenAITTSAdapter",
+    "ElevenLabsTTSAdapter",
 ]

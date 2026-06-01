@@ -1,4 +1,11 @@
-"""Text-to-Speech adapters (local gTTS and FPT Cloud)."""
+"""Text-to-Speech adapters — local and cloud providers.
+
+Providers:
+    - gTTS         (local/free, Google Translate TTS)
+    - FPT.AI       (cloud, Vietnamese-focused)
+    - OpenAI TTS   (cloud, high-quality HD voices)
+    - ElevenLabs   (cloud, premium multilingual voices)
+"""
 
 import time
 
@@ -11,6 +18,28 @@ from app.patterns.interfaces import TTSStrategy
 
 logger = get_logger("adapters.tts")
 
+
+# ═══════════════════════════════════════════════════════════
+#  Local — gTTS (Google Translate TTS)
+# ═══════════════════════════════════════════════════════════
+
+class LocalTTSAdapter(TTSStrategy):
+    """Generate speech audio locally using Google TTS (gTTS)."""
+
+    def __init__(self, lang: str | None = None):
+        self.lang = lang or settings.DEFAULT_TTS_LANG
+
+    def generate_audio(self, text: str, output_path: str) -> str:
+        logger.info("Generating local TTS (lang=%s, %d chars)", self.lang, len(text))
+        tts = gTTS(text, lang=self.lang)
+        tts.save(output_path)
+        logger.info("Local TTS saved: %s", output_path)
+        return output_path
+
+
+# ═══════════════════════════════════════════════════════════
+#  Cloud — FPT.AI
+# ═══════════════════════════════════════════════════════════
 
 class FPTCloudTTSAdapter(TTSStrategy):
     """Generate speech audio via the FPT.AI TTS cloud API.
@@ -71,15 +100,112 @@ class FPTCloudTTSAdapter(TTSStrategy):
         )
 
 
-class LocalTTSAdapter(TTSStrategy):
-    """Generate speech audio locally using Google TTS (gTTS)."""
+# ═══════════════════════════════════════════════════════════
+#  Cloud — OpenAI TTS
+# ═══════════════════════════════════════════════════════════
 
-    def __init__(self, lang: str | None = None):
-        self.lang = lang or settings.DEFAULT_TTS_LANG
+class OpenAITTSAdapter(TTSStrategy):
+    """Generate speech audio via the OpenAI TTS API.
+
+    Supports models ``tts-1`` (fast) and ``tts-1-hd`` (high quality).
+
+    Available voices: alloy, ash, ballad, coral, echo, fable,
+    onyx, nova, sage, shimmer.
+    """
+
+    def __init__(
+        self,
+        api_key: str | None = None,
+        model: str = "tts-1",
+        voice: str | None = None,
+    ):
+        try:
+            from openai import OpenAI
+        except ImportError as exc:
+            raise ImportError(
+                "Install the 'openai' package: pip install openai"
+            ) from exc
+
+        _api_key = api_key or settings.OPENAI_API_KEY
+        if not _api_key:
+            raise ValueError("OPENAI_API_KEY is required for OpenAI TTS")
+
+        self.client = OpenAI(api_key=_api_key)
+        self.model = model
+        self.voice = voice or settings.OPENAI_TTS_VOICE
 
     def generate_audio(self, text: str, output_path: str) -> str:
-        logger.info("Generating local TTS (lang=%s, %d chars)", self.lang, len(text))
-        tts = gTTS(text, lang=self.lang)
-        tts.save(output_path)
-        logger.info("Local TTS saved: %s", output_path)
+        logger.info(
+            "Generating OpenAI TTS (model=%s, voice=%s, %d chars)",
+            self.model,
+            self.voice,
+            len(text),
+        )
+
+        response = self.client.audio.speech.create(
+            model=self.model,
+            voice=self.voice,
+            input=text,
+            response_format="mp3",
+        )
+        response.stream_to_file(output_path)
+
+        logger.info("OpenAI TTS saved: %s", output_path)
         return output_path
+
+
+# ═══════════════════════════════════════════════════════════
+#  Cloud — ElevenLabs
+# ═══════════════════════════════════════════════════════════
+
+class ElevenLabsTTSAdapter(TTSStrategy):
+    """Generate speech audio via the ElevenLabs API.
+
+    Premium multilingual voices with natural intonation.
+    Uses the ``eleven_multilingual_v2`` model by default.
+    """
+
+    def __init__(
+        self,
+        api_key: str | None = None,
+        voice_id: str | None = None,
+        model_id: str = "eleven_multilingual_v2",
+    ):
+        try:
+            from elevenlabs.client import ElevenLabs
+        except ImportError as exc:
+            raise ImportError(
+                "Install the 'elevenlabs' package: pip install elevenlabs"
+            ) from exc
+
+        _api_key = api_key or settings.ELEVENLABS_API_KEY
+        if not _api_key:
+            raise ValueError(
+                "ELEVENLABS_API_KEY is required for ElevenLabs TTS"
+            )
+
+        self.client = ElevenLabs(api_key=_api_key)
+        self.voice_id = voice_id or settings.ELEVENLABS_VOICE_ID
+        self.model_id = model_id
+
+    def generate_audio(self, text: str, output_path: str) -> str:
+        logger.info(
+            "Generating ElevenLabs TTS (voice=%s, %d chars)",
+            self.voice_id,
+            len(text),
+        )
+
+        audio_generator = self.client.text_to_speech.convert(
+            text=text,
+            voice_id=self.voice_id,
+            model_id=self.model_id,
+            output_format="mp3_44100_128",
+        )
+
+        with open(output_path, "wb") as f:
+            for chunk in audio_generator:
+                f.write(chunk)
+
+        logger.info("ElevenLabs TTS saved: %s", output_path)
+        return output_path
+

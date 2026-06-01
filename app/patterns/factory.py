@@ -8,12 +8,14 @@ from app.core.config import settings
 from app.core.logging import get_logger
 from app.patterns.adapters import (
     AssemblyAIAdapter,
+    ElevenLabsTTSAdapter,
     FPTCloudTTSAdapter,
     GeminiSummarizationAdapter,
     GeminiTranscriptionAdapter,
     LocalLLMAdapter,
     LocalTTSAdapter,
     OpenAISummarizationAdapter,
+    OpenAITTSAdapter,
     OpenAIWhisperAdapter,
     WhisperXLocalAdapter,
 )
@@ -35,7 +37,7 @@ class ComponentFactory:
     Supported ``env`` values:
         Transcription : "local" (WhisperX) | "openai" | "assemblyai" | "gemini"
         Summarization : "local" (Ollama)   | "openai" | "gemini"
-        TTS           : "local" (gTTS)     | "cloud"  (FPT)
+        TTS           : "local" (gTTS)     | "fpt"    | "openai" | "elevenlabs"
     """
 
     @staticmethod
@@ -75,12 +77,16 @@ class ComponentFactory:
         logger.info("Creating TTS: env=%s  lang=%s", env, language)
         if env == "local":
             return LocalTTSAdapter(lang=language)
-        if env == "cloud":
+        if env in ("fpt", "cloud"):  # "cloud" kept as legacy alias
             api_key = settings.FPT_API_KEY
             if not api_key:
-                raise ValueError("FPT_API_KEY is not configured for cloud TTS")
+                raise ValueError("FPT_API_KEY is not configured for FPT TTS")
             return FPTCloudTTSAdapter(api_key=api_key)
+        if env == "openai":
+            return OpenAITTSAdapter()
+        if env == "elevenlabs":
+            return ElevenLabsTTSAdapter()
         raise ValueError(
             f"Unsupported TTS env: '{env}'. "
-            f"Choose from: local, cloud"
+            f"Choose from: local, fpt, openai, elevenlabs"
         )
