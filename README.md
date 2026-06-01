@@ -5,17 +5,33 @@ video with AI-generated narration.
 
 ## Architecture
 
-```
-video upload
-    │
-    ▼
-┌──────────────────┐    ┌──────────────────┐    ┌──────────────┐    ┌────────────┐
-│  Transcription   │──▶ │  Summarization   │──▶ │  TTS         │──▶ │  MoviePy   │
-│  ┌─ WhisperX     │    │  ┌─ Ollama       │    │  ┌─ gTTS     │    │  Compose   │
-│  └─ OpenAI       │    │  ├─ OpenAI GPT   │    │  └─ FPT Cloud│    └────────────┘
-│     Whisper API  │    │  └─ Google Gemini│    └──────────────┘          │
-└──────────────────┘    └──────────────────┘                             ▼
-                                                                summarized video
+```mermaid
+flowchart LR
+    Upload["🎬 Video Upload"]
+
+    subgraph Transcription["1. Transcription"]
+        direction TB
+        T1["WhisperX (local)"]
+        T2["OpenAI Whisper API"]
+    end
+
+    subgraph Summarization["2. Summarization"]
+        direction TB
+        S1["Ollama (local)"]
+        S2["OpenAI GPT-4o"]
+        S3["Google Gemini"]
+    end
+
+    subgraph TTS["3. Text-to-Speech"]
+        direction TB
+        TTS1["gTTS (local)"]
+        TTS2["FPT.AI Cloud"]
+    end
+
+    Compose["🎥 MoviePy Compose"]
+    Output["✅ Summarized Video"]
+
+    Upload --> Transcription --> Summarization --> TTS --> Compose --> Output
 ```
 
 ### Provider Matrix
