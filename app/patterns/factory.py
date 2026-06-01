@@ -1,9 +1,18 @@
+"""Factory for creating pipeline components.
+
+Maps the ``env`` string (from the API request) to the correct concrete
+adapter.  Adding a new provider requires only a new ``elif`` branch.
+"""
+
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.patterns.adapters import (
     FPTCloudTTSAdapter,
+    GeminiSummarizationAdapter,
     LocalLLMAdapter,
     LocalTTSAdapter,
+    OpenAISummarizationAdapter,
+    OpenAIWhisperAdapter,
     WhisperXLocalAdapter,
 )
 from app.patterns.interfaces import (
@@ -20,6 +29,11 @@ class ComponentFactory:
 
     All configuration flows from ``settings`` so that .env values
     are respected automatically.
+
+    Supported ``env`` values:
+        Transcription : "local" (WhisperX) | "openai"
+        Summarization : "local" (Ollama)   | "openai" | "gemini"
+        TTS           : "local" (gTTS)     | "cloud"  (FPT)
     """
 
     @staticmethod
@@ -27,14 +41,26 @@ class ComponentFactory:
         logger.info("Creating transcriber: env=%s", env)
         if env == "local":
             return WhisperXLocalAdapter()
-        raise ValueError(f"Unsupported transcriber env: {env}")
+        if env == "openai":
+            return OpenAIWhisperAdapter()
+        raise ValueError(
+            f"Unsupported transcriber env: '{env}'. "
+            f"Choose from: local, openai"
+        )
 
     @staticmethod
     def create_summarizer(env: str = "local") -> SummarizationStrategy:
         logger.info("Creating summarizer: env=%s", env)
         if env == "local":
             return LocalLLMAdapter()
-        raise ValueError(f"Unsupported summarizer env: {env}")
+        if env == "openai":
+            return OpenAISummarizationAdapter()
+        if env == "gemini":
+            return GeminiSummarizationAdapter()
+        raise ValueError(
+            f"Unsupported summarizer env: '{env}'. "
+            f"Choose from: local, openai, gemini"
+        )
 
     @staticmethod
     def create_tts(
@@ -48,4 +74,7 @@ class ComponentFactory:
             if not api_key:
                 raise ValueError("FPT_API_KEY is not configured for cloud TTS")
             return FPTCloudTTSAdapter(api_key=api_key)
-        raise ValueError(f"Unsupported TTS env: {env}")
+        raise ValueError(
+            f"Unsupported TTS env: '{env}'. "
+            f"Choose from: local, cloud"
+        )

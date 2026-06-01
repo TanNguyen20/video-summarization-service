@@ -9,27 +9,43 @@ video with AI-generated narration.
 video upload
     │
     ▼
-┌──────────────┐    ┌───────────────┐    ┌─────────┐    ┌────────────┐
-│  WhisperX    │──▶│  Ollama LLM   │──▶│  gTTS /  │──▶│  MoviePy   │
-│  Transcribe  │    │  Summarize    │    │  FPT TTS │    │  Compose   │
-└──────────────┘    └───────────────┘    └─────────┘    └────────────┘
-                                                              │
-                                                              ▼
-                                                     summarized video
+┌──────────────────┐    ┌──────────────────┐    ┌──────────────┐    ┌────────────┐
+│  Transcription   │──▶ │  Summarization   │──▶ │  TTS         │──▶ │  MoviePy   │
+│  ┌─ WhisperX     │    │  ┌─ Ollama       │    │  ┌─ gTTS     │    │  Compose   │
+│  └─ OpenAI       │    │  ├─ OpenAI GPT   │    │  └─ FPT Cloud│    └────────────┘
+│     Whisper API  │    │  └─ Google Gemini│    └──────────────┘          │
+└──────────────────┘    └──────────────────┘                             ▼
+                                                                summarized video
 ```
 
-**Design Patterns**:
-- **Strategy** — swappable transcription, summarization, and TTS backends
-- **Factory** — `ComponentFactory` creates the correct adapter from config
+### Provider Matrix
+
+| Stage | `env` value | Provider | Requirements |
+|-------|------------|----------|-------|
+| Transcription | `local` | WhisperX | GPU recommended, auto CPU fallback |
+| Transcription | `openai` | OpenAI Whisper API | `OPENAI_API_KEY` |
+| Summarization | `local` | Ollama (Llama 3, etc.) | Local Ollama server |
+| Summarization | `openai` | OpenAI GPT-4o | `OPENAI_API_KEY` |
+| Summarization | `gemini` | Google Gemini | `GEMINI_API_KEY` |
+| TTS | `local` | gTTS (Google Text-to-Speech) | Internet connection |
+| TTS | `cloud` | FPT.AI TTS | `FPT_API_KEY` |
+
+### Design Patterns
+
+- **Strategy** — each pipeline stage (transcription, summarization, TTS) has an abstract interface; concrete adapters are swappable at runtime
+- **Adapter** — wraps third-party SDKs (OpenAI, Gemini, WhisperX, gTTS) behind our standard interfaces
+- **Factory Method** — `ComponentFactory` maps the `env` string to the correct adapter, centralizing creation logic
 - **Repository** — `TaskRepository` abstracts PostgreSQL persistence
-- **Pipeline** — `VideoSummarizationPipeline` orchestrates the workflow
+- **Pipeline** — `VideoSummarizationPipeline` orchestrates the full workflow
 
 ## Prerequisites
 
 - Python 3.11+
 - FFmpeg installed and on `PATH`
 - **PostgreSQL 14+** running locally (or via Docker)
-- Ollama running locally (for LLM summarization)
+- **At least one provider** per stage:
+  - Transcription: WhisperX locally **or** OpenAI API key
+  - Summarization: Ollama locally **or** OpenAI / Gemini API key
 - NVIDIA GPU + CUDA (optional — auto-falls back to CPU)
 
 ## Quick Start
@@ -108,12 +124,34 @@ Interactive docs at `http://localhost:8000/docs`.
 | `GET` | `/api/v1/tasks/{id}` | Check task status |
 | `GET` | `/api/v1/tasks/{id}/download` | Download result |
 
-### Upload Example
+### Upload — Local Pipeline
 
 ```bash
 curl -X POST http://localhost:8000/api/v1/summarize \
   -F "file=@my_video.mp4" \
   -G -d "language=vi" -d "tts_env=local"
+```
+
+### Upload — Cloud Pipeline (OpenAI transcription + Gemini summarization)
+
+```bash
+curl -X POST http://localhost:8000/api/v1/summarize \
+  -F "file=@my_video.mp4" \
+  -G -d "transcriber_env=openai" \
+     -d "summarizer_env=gemini" \
+     -d "tts_env=local" \
+     -d "language=en"
+```
+
+### Upload — Mixed (local transcription + OpenAI summarization)
+
+```bash
+curl -X POST http://localhost:8000/api/v1/summarize \
+  -F "file=@my_video.mp4" \
+  -G -d "transcriber_env=local" \
+     -d "summarizer_env=openai" \
+     -d "tts_env=local" \
+     -d "language=vi"
 ```
 
 ### Check Status
@@ -164,9 +202,10 @@ See [`.env.example`](.env.example) for the full list.
 │   │   ├── interfaces.py          # Abstract strategies (ABC)
 │   │   ├── factory.py             # Component factory
 │   │   └── adapters/
-│   │       ├── transcription.py   # WhisperX adapter
-│   │       ├── summarization.py   # Ollama LLM adapter
-│   │       └── tts.py             # gTTS + FPT Cloud adapters
+│   │       ├── prompts.py         # Shared prompt builder
+│   │       ├── transcription.py   # WhisperX + OpenAI Whisper
+│   │       ├── summarization.py   # Ollama + OpenAI GPT + Gemini
+│   │       └── tts.py             # gTTS + FPT Cloud
 │   └── services/
 │       ├── pipeline.py            # Orchestration pipeline
 │       └── task_store.py          # TaskRepository (PostgreSQL)

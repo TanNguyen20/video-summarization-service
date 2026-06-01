@@ -18,11 +18,17 @@ class Settings(BaseSettings):
     # ── Database ────────────────────────────────────────────
     DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/video_summarization"
 
-    # ── LLM (Ollama) ───────────────────────────────────────
-    FPT_API_KEY: str | None = None
+    # ── LLM (Ollama — local) ────────────────────────────────
     OLLAMA_URL: str = "http://localhost:11434/api/generate"
     OLLAMA_TIMEOUT: int = 120
     LLM_MODEL: str = "llama3"
+
+    # ── Cloud Providers ────────────────────────────────────
+    OPENAI_API_KEY: str | None = None
+    OPENAI_MODEL: str = "gpt-4o"
+    GEMINI_API_KEY: str | None = None
+    GEMINI_MODEL: str = "gemini-2.0-flash"
+    FPT_API_KEY: str | None = None
 
     # ── Whisper ─────────────────────────────────────────────
     WHISPER_MODEL_SIZE: str = "large-v2"
