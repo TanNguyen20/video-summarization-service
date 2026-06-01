@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     OPENAI_MODEL: str = "gpt-4o"
     GEMINI_API_KEY: str | None = None
     GEMINI_MODEL: str = "gemini-2.0-flash"
+    ASSEMBLYAI_API_KEY: str | None = None
     FPT_API_KEY: str | None = None
 
     # ── Whisper ─────────────────────────────────────────────

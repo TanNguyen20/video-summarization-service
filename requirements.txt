@@ -13,3 +13,4 @@ alembic>=1.13.0
 # Cloud providers (install as needed)
 openai>=1.30.0
 google-genai>=1.0.0
+assemblyai>=0.30.0

@@ -7,8 +7,10 @@ adapter.  Adding a new provider requires only a new ``elif`` branch.
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.patterns.adapters import (
+    AssemblyAIAdapter,
     FPTCloudTTSAdapter,
     GeminiSummarizationAdapter,
+    GeminiTranscriptionAdapter,
     LocalLLMAdapter,
     LocalTTSAdapter,
     OpenAISummarizationAdapter,
@@ -31,7 +33,7 @@ class ComponentFactory:
     are respected automatically.
 
     Supported ``env`` values:
-        Transcription : "local" (WhisperX) | "openai"
+        Transcription : "local" (WhisperX) | "openai" | "assemblyai" | "gemini"
         Summarization : "local" (Ollama)   | "openai" | "gemini"
         TTS           : "local" (gTTS)     | "cloud"  (FPT)
     """
@@ -43,9 +45,13 @@ class ComponentFactory:
             return WhisperXLocalAdapter()
         if env == "openai":
             return OpenAIWhisperAdapter()
+        if env == "assemblyai":
+            return AssemblyAIAdapter()
+        if env == "gemini":
+            return GeminiTranscriptionAdapter()
         raise ValueError(
             f"Unsupported transcriber env: '{env}'. "
-            f"Choose from: local, openai"
+            f"Choose from: local, openai, assemblyai, gemini"
         )
 
     @staticmethod

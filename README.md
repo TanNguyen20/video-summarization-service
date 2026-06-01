@@ -13,6 +13,8 @@ flowchart LR
         direction TB
         T1["WhisperX (local)"]
         T2["OpenAI Whisper API"]
+        T3["AssemblyAI"]
+        T4["Google Gemini"]
     end
 
     subgraph Summarization["2. Summarization"]
@@ -40,6 +42,8 @@ flowchart LR
 |-------|------------|----------|-------|
 | Transcription | `local` | WhisperX | GPU recommended, auto CPU fallback |
 | Transcription | `openai` | OpenAI Whisper API | `OPENAI_API_KEY` |
+| Transcription | `assemblyai` | AssemblyAI | `ASSEMBLYAI_API_KEY` |
+| Transcription | `gemini` | Google Gemini (multimodal) | `GEMINI_API_KEY` |
 | Summarization | `local` | Ollama (Llama 3, etc.) | Local Ollama server |
 | Summarization | `openai` | OpenAI GPT-4o | `OPENAI_API_KEY` |
 | Summarization | `gemini` | Google Gemini | `GEMINI_API_KEY` |

@@ -1,6 +1,8 @@
 """Concrete adapter implementations for each pipeline strategy."""
 
 from app.patterns.adapters.transcription import (
+    AssemblyAIAdapter,
+    GeminiTranscriptionAdapter,
     OpenAIWhisperAdapter,
     WhisperXLocalAdapter,
 )
@@ -15,6 +17,8 @@ __all__ = [
     # Transcription
     "WhisperXLocalAdapter",
     "OpenAIWhisperAdapter",
+    "AssemblyAIAdapter",
+    "GeminiTranscriptionAdapter",
     # Summarization
     "LocalLLMAdapter",
     "OpenAISummarizationAdapter",
