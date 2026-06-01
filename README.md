@@ -6,36 +6,37 @@ video with AI-generated narration.
 ## Architecture
 
 ```mermaid
-flowchart LR
+flowchart TB
     Upload["🎬 Video Upload"]
 
     subgraph Transcription["1. Transcription"]
-        direction TB
-        T1["WhisperX (local)"]
-        T2["OpenAI Whisper API"]
+        T1["WhisperX\n(local)"]
+        T2["OpenAI\nWhisper API"]
         T3["AssemblyAI"]
-        T4["Google Gemini"]
+        T4["Google\nGemini"]
     end
 
     subgraph Summarization["2. Summarization"]
-        direction TB
-        S1["Ollama (local)"]
-        S2["OpenAI GPT-4o"]
-        S3["Google Gemini"]
+        S1["Ollama\n(local)"]
+        S2["OpenAI\nGPT-4o"]
+        S3["Google\nGemini"]
     end
 
     subgraph TTS["3. Text-to-Speech"]
-        direction TB
-        TTS1["gTTS (local)"]
+        TTS1["gTTS\n(local)"]
         TTS2["FPT.AI"]
-        TTS3["OpenAI TTS"]
+        TTS3["OpenAI\nTTS"]
         TTS4["ElevenLabs"]
     end
 
     Compose["🎥 MoviePy Compose"]
     Output["✅ Summarized Video"]
 
-    Upload --> Transcription --> Summarization --> TTS --> Compose --> Output
+    Upload --> Transcription
+    Transcription --> Summarization
+    Summarization --> TTS
+    TTS --> Compose
+    Compose --> Output
 ```
 
 ### Provider Matrix
