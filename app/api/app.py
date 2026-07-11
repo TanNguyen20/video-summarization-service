@@ -6,12 +6,14 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.core.config import settings
+from app.core.ffmpeg import ensure_ffmpeg_on_path
 from app.core.logging import get_logger, setup_logging
 from app.db.session import dispose_db, init_db
 from app.services.task_store import TaskRepository
 
 # ── Bootstrap ──────────────────────────────────────────────
 setup_logging(settings.LOG_LEVEL)
+ensure_ffmpeg_on_path()
 logger = get_logger("api")
 
 # Shared task repository (used by endpoint routers)

@@ -48,7 +48,9 @@ async def _run_pipeline(
         logger.info("Pipeline started for task %s", task_id)
 
         transcriber = ComponentFactory.create_transcriber(options.transcriber_env)
-        summarizer = ComponentFactory.create_summarizer(options.summarizer_env)
+        summarizer = ComponentFactory.create_summarizer(
+            options.summarizer_env, language=options.language,
+        )
         tts = ComponentFactory.create_tts(options.tts_env, language=options.language)
 
         pipeline = VideoSummarizationPipeline(transcriber, summarizer, tts)
@@ -86,8 +88,17 @@ async def upload_and_summarize(
     file: UploadFile = File(...),
     transcriber_env: str = Query("local", description="Transcription backend"),
     summarizer_env: str = Query("local", description="Summarization backend"),
-    tts_env: str = Query("local", description="TTS backend: 'local' or 'cloud'"),
-    language: str = Query("vi", description="Language code for TTS"),
+    tts_env: str = Query(
+        "local",
+        description="TTS backend: 'local', 'fpt', 'openai', 'elevenlabs', or 'cloud' (first configured cloud provider)",
+    ),
+    language: str = Query(
+        "vi",
+        description=(
+            "Target language code (ISO 639-1). Summary narration is "
+            "translated into this language and spoken by TTS"
+        ),
+    ),
 ):
     """Upload a video and start the summarization pipeline."""
     from app.api.app import task_store

@@ -38,6 +38,7 @@ class ComponentFactory:
         Transcription : "local" (WhisperX) | "openai" | "assemblyai" | "gemini"
         Summarization : "local" (Ollama)   | "openai" | "gemini"
         TTS           : "local" (gTTS)     | "fpt"    | "openai" | "elevenlabs"
+                        | "cloud" (legacy alias — first configured cloud provider)
     """
 
     @staticmethod
@@ -57,14 +58,16 @@ class ComponentFactory:
         )
 
     @staticmethod
-    def create_summarizer(env: str = "local") -> SummarizationStrategy:
-        logger.info("Creating summarizer: env=%s", env)
+    def create_summarizer(
+        env: str = "local", language: str | None = None,
+    ) -> SummarizationStrategy:
+        logger.info("Creating summarizer: env=%s  lang=%s", env, language)
         if env == "local":
-            return LocalLLMAdapter()
+            return LocalLLMAdapter(language=language)
         if env == "openai":
-            return OpenAISummarizationAdapter()
+            return OpenAISummarizationAdapter(language=language)
         if env == "gemini":
-            return GeminiSummarizationAdapter()
+            return GeminiSummarizationAdapter(language=language)
         raise ValueError(
             f"Unsupported summarizer env: '{env}'. "
             f"Choose from: local, openai, gemini"
@@ -77,7 +80,21 @@ class ComponentFactory:
         logger.info("Creating TTS: env=%s  lang=%s", env, language)
         if env == "local":
             return LocalTTSAdapter(lang=language)
-        if env in ("fpt", "cloud"):  # "cloud" kept as legacy alias
+        if env == "cloud":  # legacy alias — first cloud provider with a key
+            if settings.FPT_API_KEY:
+                logger.info("TTS env 'cloud' resolved to: fpt")
+                return FPTCloudTTSAdapter(api_key=settings.FPT_API_KEY)
+            if settings.ELEVENLABS_API_KEY:
+                logger.info("TTS env 'cloud' resolved to: elevenlabs")
+                return ElevenLabsTTSAdapter(language=language)
+            if settings.OPENAI_API_KEY:
+                logger.info("TTS env 'cloud' resolved to: openai")
+                return OpenAITTSAdapter()
+            raise ValueError(
+                "No cloud TTS provider is configured. Set FPT_API_KEY, "
+                "ELEVENLABS_API_KEY, or OPENAI_API_KEY — or use tts_env=local"
+            )
+        if env == "fpt":
             api_key = settings.FPT_API_KEY
             if not api_key:
                 raise ValueError("FPT_API_KEY is not configured for FPT TTS")
@@ -85,7 +102,7 @@ class ComponentFactory:
         if env == "openai":
             return OpenAITTSAdapter()
         if env == "elevenlabs":
-            return ElevenLabsTTSAdapter()
+            return ElevenLabsTTSAdapter(language=language)
         raise ValueError(
             f"Unsupported TTS env: '{env}'. "
             f"Choose from: local, fpt, openai, elevenlabs"

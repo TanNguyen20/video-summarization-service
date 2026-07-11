@@ -162,14 +162,19 @@ class ElevenLabsTTSAdapter(TTSStrategy):
     """Generate speech audio via the ElevenLabs API.
 
     Premium multilingual voices with natural intonation.
-    Uses the ``eleven_multilingual_v2`` model by default.
+    Vietnamese requires a v2.5 (or newer) model — ``eleven_multilingual_v2``
+    rejects ``language_code='vi'``.
     """
+
+    # Models that accept explicit language_code enforcement
+    _LANGUAGE_CODE_MODELS = ("eleven_flash_v2_5", "eleven_turbo_v2_5")
 
     def __init__(
         self,
         api_key: str | None = None,
         voice_id: str | None = None,
-        model_id: str = "eleven_multilingual_v2",
+        model_id: str | None = None,
+        language: str | None = None,
     ):
         try:
             from elevenlabs.client import ElevenLabs
@@ -186,20 +191,28 @@ class ElevenLabsTTSAdapter(TTSStrategy):
 
         self.client = ElevenLabs(api_key=_api_key)
         self.voice_id = voice_id or settings.ELEVENLABS_VOICE_ID
-        self.model_id = model_id
+        self.model_id = model_id or settings.ELEVENLABS_MODEL_ID
+        self.language = language
 
     def generate_audio(self, text: str, output_path: str) -> str:
         logger.info(
-            "Generating ElevenLabs TTS (voice=%s, %d chars)",
+            "Generating ElevenLabs TTS (voice=%s, model=%s, lang=%s, %d chars)",
             self.voice_id,
+            self.model_id,
+            self.language,
             len(text),
         )
+
+        convert_kwargs = {}
+        if self.language and self.model_id in self._LANGUAGE_CODE_MODELS:
+            convert_kwargs["language_code"] = self.language
 
         audio_generator = self.client.text_to_speech.convert(
             text=text,
             voice_id=self.voice_id,
             model_id=self.model_id,
             output_format="mp3_44100_128",
+            **convert_kwargs,
         )
 
         with open(output_path, "wb") as f:

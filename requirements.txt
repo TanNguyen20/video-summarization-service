@@ -3,6 +3,9 @@ uvicorn[standard]>=0.23.0
 python-multipart
 pydantic
 pydantic-settings>=2.0.0
+# NOTE (GPU): PyPI ships CPU-only torch wheels on Windows. For NVIDIA GPU support
+# (RTX 50-series needs CUDA >= 12.8), install the CUDA build BEFORE this file:
+#   pip install torch==2.8.0 torchvision==0.23.0 torchaudio==2.8.0 --index-url https://download.pytorch.org/whl/cu128
 whisperx>=3.1.1
 requests>=2.31.0
 gTTS>=2.3.2

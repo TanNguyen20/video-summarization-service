@@ -10,8 +10,8 @@ from app.core.config import settings
 from app.core.logging import get_logger
 from app.models.schemas import SummaryScene
 from app.patterns.adapters.prompts import (
-    SYSTEM_INSTRUCTION,
     build_summarization_prompt,
+    build_system_instruction,
 )
 from app.patterns.interfaces import SummarizationStrategy
 
@@ -59,23 +59,27 @@ class LocalLLMAdapter(SummarizationStrategy):
         ollama_url: str | None = None,
         model: str | None = None,
         timeout: int | None = None,
+        language: str | None = None,
     ):
         self.url = ollama_url or settings.OLLAMA_URL
         self.model = model or settings.LLM_MODEL
         self.timeout = timeout or settings.OLLAMA_TIMEOUT
+        self.language = language
 
     def summarize(self, transcript: str) -> List[Dict]:
         logger.info(
-            "Summarizing transcript (%d chars) with Ollama model=%s",
+            "Summarizing transcript (%d chars) with Ollama model=%s lang=%s",
             len(transcript),
             self.model,
+            self.language,
         )
 
         payload = {
             "model": self.model,
-            "prompt": build_summarization_prompt(transcript),
+            "prompt": build_summarization_prompt(transcript, self.language),
             "format": "json",
             "stream": False,
+            "think": settings.LLM_THINK,
         }
 
         try:
@@ -109,6 +113,7 @@ class OpenAISummarizationAdapter(SummarizationStrategy):
         self,
         api_key: str | None = None,
         model: str | None = None,
+        language: str | None = None,
     ):
         try:
             from openai import OpenAI
@@ -123,18 +128,20 @@ class OpenAISummarizationAdapter(SummarizationStrategy):
 
         self.client = OpenAI(api_key=_api_key)
         self.model = model or settings.OPENAI_MODEL
+        self.language = language
 
     def summarize(self, transcript: str) -> List[Dict]:
         logger.info(
-            "Summarizing transcript (%d chars) with OpenAI model=%s",
+            "Summarizing transcript (%d chars) with OpenAI model=%s lang=%s",
             len(transcript),
             self.model,
+            self.language,
         )
 
         response = self.client.chat.completions.create(
             model=self.model,
             messages=[
-                {"role": "system", "content": SYSTEM_INSTRUCTION},
+                {"role": "system", "content": build_system_instruction(self.language)},
                 {"role": "user", "content": f"Transcript:\n{transcript}"},
             ],
             response_format={"type": "json_object"},
@@ -159,6 +166,7 @@ class GeminiSummarizationAdapter(SummarizationStrategy):
         self,
         api_key: str | None = None,
         model: str | None = None,
+        language: str | None = None,
     ):
         try:
             from google import genai
@@ -174,17 +182,19 @@ class GeminiSummarizationAdapter(SummarizationStrategy):
         self.client = genai.Client(api_key=_api_key)
         self.model = model or settings.GEMINI_MODEL
         self._genai = genai
+        self.language = language
 
     def summarize(self, transcript: str) -> List[Dict]:
         logger.info(
-            "Summarizing transcript (%d chars) with Gemini model=%s",
+            "Summarizing transcript (%d chars) with Gemini model=%s lang=%s",
             len(transcript),
             self.model,
+            self.language,
         )
 
         response = self.client.models.generate_content(
             model=self.model,
-            contents=build_summarization_prompt(transcript),
+            contents=build_summarization_prompt(transcript, self.language),
             config=self._genai.types.GenerateContentConfig(
                 response_mime_type="application/json",
                 temperature=0.3,

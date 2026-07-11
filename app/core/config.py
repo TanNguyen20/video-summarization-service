@@ -21,7 +21,9 @@ class Settings(BaseSettings):
     # ── LLM (Ollama — local) ────────────────────────────────
     OLLAMA_URL: str = "http://localhost:11434/api/generate"
     OLLAMA_TIMEOUT: int = 120
-    LLM_MODEL: str = "llama3"
+    LLM_MODEL: str = "qwen3:14b"
+    # Thinking models (qwen3) emit "{}" under format=json unless thinking is off
+    LLM_THINK: bool = False
 
     # ── Cloud Providers ────────────────────────────────────
     OPENAI_API_KEY: str | None = None
@@ -33,6 +35,8 @@ class Settings(BaseSettings):
     FPT_API_KEY: str | None = None
     ELEVENLABS_API_KEY: str | None = None
     ELEVENLABS_VOICE_ID: str = "JBFqnCBsd6RMkjVDRZzb"
+    # multilingual_v2 does not support Vietnamese; flash_v2_5 does
+    ELEVENLABS_MODEL_ID: str = "eleven_flash_v2_5"
 
     # ── Whisper ─────────────────────────────────────────────
     WHISPER_MODEL_SIZE: str = "large-v2"

@@ -34,5 +34,14 @@ class SummarizationOptions(BaseModel):
 
     transcriber_env: str = Field(default="local", description="Transcription backend")
     summarizer_env: str = Field(default="local", description="Summarization backend")
-    tts_env: str = Field(default="local", description="TTS backend: 'local' or 'cloud'")
-    language: str = Field(default="vi", description="Language code for TTS output")
+    tts_env: str = Field(
+        default="local",
+        description="TTS backend: 'local', 'fpt', 'openai', 'elevenlabs', or 'cloud' (first configured cloud provider)",
+    )
+    language: str = Field(
+        default="vi",
+        description=(
+            "Target language code (ISO 639-1). Summary narration is "
+            "translated into this language and spoken by TTS"
+        ),
+    )

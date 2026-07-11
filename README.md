@@ -18,7 +18,7 @@ flowchart LR
         T1 ~~~ T2 ~~~ T3 ~~~ T4
     end
 
-    subgraph Summarization["2 · Summarization"]
+    subgraph Summarization["2 · Summarization + Translation"]
         direction TB
         S1["🖥️ Ollama — local"]
         S2["☁️ OpenAI GPT-4o"]
@@ -49,13 +49,14 @@ flowchart LR
 | Transcription | `openai` | OpenAI Whisper API | `OPENAI_API_KEY` |
 | Transcription | `assemblyai` | AssemblyAI | `ASSEMBLYAI_API_KEY` |
 | Transcription | `gemini` | Google Gemini (multimodal) | `GEMINI_API_KEY` |
-| Summarization | `local` | Ollama (Llama 3, etc.) | Local Ollama server |
+| Summarization | `local` | Ollama (Qwen3, etc. — default `qwen3:14b`) | Local Ollama server |
 | Summarization | `openai` | OpenAI GPT-4o | `OPENAI_API_KEY` |
 | Summarization | `gemini` | Google Gemini | `GEMINI_API_KEY` |
 | TTS | `local` | gTTS (Google Translate TTS) | Internet connection |
 | TTS | `fpt` | FPT.AI TTS | `FPT_API_KEY` |
 | TTS | `openai` | OpenAI TTS (tts-1 / tts-1-hd) | `OPENAI_API_KEY` |
 | TTS | `elevenlabs` | ElevenLabs (multilingual v2) | `ELEVENLABS_API_KEY` |
+| TTS | `cloud` | Legacy alias — first configured cloud provider (FPT → ElevenLabs → OpenAI) | Any cloud TTS key |
 
 ### Design Patterns
 
@@ -71,8 +72,9 @@ flowchart LR
 - FFmpeg installed and on `PATH`
 - **PostgreSQL 14+** running locally (or via Docker)
 - **At least one provider** per stage:
-  - Transcription: WhisperX locally **or** OpenAI API key
+  - Transcription: WhisperX locally **or** OpenAI / AssemblyAI / Gemini API key
   - Summarization: Ollama locally **or** OpenAI / Gemini API key
+  - TTS: gTTS (no key needed) **or** FPT / OpenAI / ElevenLabs API key
 - NVIDIA GPU + CUDA (optional — auto-falls back to CPU)
 
 ## Quick Start
@@ -151,6 +153,15 @@ Interactive docs at `http://localhost:8000/docs`.
 | `GET` | `/api/v1/tasks/{id}` | Check task status |
 | `GET` | `/api/v1/tasks/{id}/download` | Download result |
 
+### Query Parameters — `POST /api/v1/summarize`
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `transcriber_env` | `local` | Transcription backend: `local`, `openai`, `assemblyai`, `gemini` |
+| `summarizer_env` | `local` | Summarization backend: `local`, `openai`, `gemini` |
+| `tts_env` | `local` | TTS backend: `local`, `fpt`, `openai`, `elevenlabs`, `cloud` |
+| `language` | `vi` | Target language code (ISO 639-1). The summary narration is **translated** into this language by the summarizer LLM and spoken by TTS — the source video can be in any language |
+
 ### Upload — Local Pipeline
 
 ```bash
@@ -179,6 +190,16 @@ curl -X POST http://localhost:8000/api/v1/summarize \
      -d "summarizer_env=openai" \
      -d "tts_env=local" \
      -d "language=vi"
+```
+
+### Upload — Translate Narration (any source language → English)
+
+```bash
+curl -X POST http://localhost:8000/api/v1/summarize \
+  -F "file=@vietnamese_video.mp4" \
+  -G -d "summarizer_env=openai" \
+     -d "tts_env=openai" \
+     -d "language=en"
 ```
 
 ### Check Status
@@ -219,6 +240,7 @@ See [`.env.example`](.env.example) for the full list.
 │   │       └── tasks.py           # GET status + GET download
 │   ├── core/
 │   │   ├── config.py              # Pydantic settings (incl. DATABASE_URL)
+│   │   ├── ffmpeg.py              # ffmpeg PATH resolution (Windows registry fallback)
 │   │   └── logging.py             # Logging setup
 │   ├── db/
 │   │   ├── models.py              # SQLAlchemy ORM models
@@ -229,10 +251,10 @@ See [`.env.example`](.env.example) for the full list.
 │   │   ├── interfaces.py          # Abstract strategies (ABC)
 │   │   ├── factory.py             # Component factory
 │   │   └── adapters/
-│   │       ├── prompts.py         # Shared prompt builder
-│   │       ├── transcription.py   # WhisperX + OpenAI Whisper
+│   │       ├── prompts.py         # Shared prompt builder (language-aware)
+│   │       ├── transcription.py   # WhisperX + OpenAI Whisper + AssemblyAI + Gemini
 │   │       ├── summarization.py   # Ollama + OpenAI GPT + Gemini
-│   │       └── tts.py             # gTTS + FPT Cloud
+│   │       └── tts.py             # gTTS + FPT + OpenAI TTS + ElevenLabs
 │   └── services/
 │       ├── pipeline.py            # Orchestration pipeline
 │       └── task_store.py          # TaskRepository (PostgreSQL)
