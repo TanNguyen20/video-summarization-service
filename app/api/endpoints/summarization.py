@@ -16,9 +16,12 @@ from fastapi import (
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.models.schemas import (
+    RESOLUTION_DIMENSIONS,
     SummarizationOptions,
     TaskResponse,
     TaskStatusEnum,
+    VideoFit,
+    VideoResolution,
 )
 from app.patterns.factory import ComponentFactory
 from app.services.pipeline import VideoSummarizationPipeline
@@ -55,9 +58,16 @@ async def _run_pipeline(
 
         pipeline = VideoSummarizationPipeline(transcriber, summarizer, tts)
 
+        target_size = RESOLUTION_DIMENSIONS[options.resolution.value]
+
         # Run the blocking, CPU-heavy pipeline in a worker thread
         await asyncio.to_thread(
-            pipeline.process, input_path, output_path, task_id,
+            pipeline.process,
+            input_path,
+            output_path,
+            task_id,
+            target_size,
+            options.fit.value,
         )
 
         await task_store.update(
@@ -97,6 +107,22 @@ async def upload_and_summarize(
         description=(
             "Target language code (ISO 639-1). Summary narration is "
             "translated into this language and spoken by TTS"
+        ),
+    ),
+    resolution: VideoResolution = Query(
+        VideoResolution.MOBILE,
+        description=(
+            "Output resolution preset. 'mobile' (1080x1920, 9:16) is tuned "
+            "for TikTok / Facebook Reels; also 'tablet' (4:5), 'square' (1:1), "
+            "'desktop' (16:9), or 'original' to keep the source size"
+        ),
+    ),
+    fit: VideoFit = Query(
+        VideoFit.BLUR,
+        description=(
+            "How the source frame fills the target aspect ratio: 'blur' "
+            "(blurred background, no content lost), 'cover' (center-crop to "
+            "fill), or 'contain' (letterbox with black bars)"
         ),
     ),
 ):
@@ -162,6 +188,8 @@ async def upload_and_summarize(
         summarizer_env=summarizer_env,
         tts_env=tts_env,
         language=language,
+        resolution=resolution,
+        fit=fit,
     )
     await task_store.create(task_id)
     background_tasks.add_task(_run_pipeline, task_id, input_path, output_path, options)

@@ -15,6 +15,14 @@ class TranscriptionStrategy(ABC):
             - 'text':  str
         """
 
+    def cleanup(self) -> None:
+        """Release resources held by the adapter (e.g. GPU model weights).
+
+        Called by the pipeline as soon as the stage is finished, and again
+        defensively on teardown — implementations must be idempotent.
+        Default is a no-op; adapters holding local models should override.
+        """
+
 
 class SummarizationStrategy(ABC):
     """Abstract interface for transcript summarization."""
@@ -27,15 +35,27 @@ class SummarizationStrategy(ABC):
             - 'start_time':    float
             - 'end_time':      float
             - 'summary_text':  str
+            - 'emotion':       str  (SceneEmotion value, e.g. "neutral")
         """
+
+    def cleanup(self) -> None:
+        """Release resources held by the adapter. Idempotent no-op by default."""
 
 
 class TTSStrategy(ABC):
     """Abstract interface for text-to-speech generation."""
 
     @abstractmethod
-    def generate_audio(self, text: str, output_path: str) -> str:
+    def generate_audio(
+        self, text: str, output_path: str, emotion: str | None = None,
+    ) -> str:
         """Convert *text* to speech and save to *output_path*.
+
+        *emotion* is an optional tone hint (a SceneEmotion value taken from
+        the scene summary). Adapters without emotion control may ignore it.
 
         Returns the path to the generated audio file.
         """
+
+    def cleanup(self) -> None:
+        """Release resources held by the adapter. Idempotent no-op by default."""

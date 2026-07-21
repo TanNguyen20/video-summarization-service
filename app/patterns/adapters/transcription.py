@@ -33,24 +33,40 @@ class WhisperXLocalAdapter(TranscriptionStrategy):
         device: str | None = None,
         compute_type: str | None = None,
     ):
-        import whisperx
-
         self.device = device or settings.resolved_device
-        _compute_type = compute_type or settings.resolved_compute_type
-        _model_size = model_size or settings.WHISPER_MODEL_SIZE
+        self._compute_type = compute_type or settings.resolved_compute_type
+        self._model_size = model_size or settings.WHISPER_MODEL_SIZE
+        self.model = None
+        self._load_model()
+
+    def _load_model(self) -> None:
+        import whisperx
 
         logger.info(
             "Loading WhisperX  model=%s  device=%s  compute=%s",
-            _model_size,
+            self._model_size,
             self.device,
-            _compute_type,
+            self._compute_type,
         )
         self.model = whisperx.load_model(
-            _model_size, self.device, compute_type=_compute_type,
+            self._model_size, self.device, compute_type=self._compute_type,
         )
+
+    def _free_gpu_memory(self) -> None:
+        """Force garbage collection and return cached VRAM to the OS."""
+        import gc
+
+        gc.collect()
+        if self.device.startswith("cuda"):
+            import torch
+
+            torch.cuda.empty_cache()
 
     def transcribe(self, audio_path: str) -> List[Dict]:
         import whisperx
+
+        if self.model is None:  # reload after a previous cleanup()
+            self._load_model()
 
         logger.info("Transcribing: %s", audio_path)
         audio = whisperx.load_audio(audio_path)
@@ -62,18 +78,31 @@ class WhisperXLocalAdapter(TranscriptionStrategy):
         model_a, metadata = whisperx.load_align_model(
             language_code=language, device=self.device,
         )
-        aligned = whisperx.align(
-            result["segments"],
-            model_a,
-            metadata,
-            audio,
-            self.device,
-            return_char_alignments=False,
-        )
+        try:
+            aligned = whisperx.align(
+                result["segments"],
+                model_a,
+                metadata,
+                audio,
+                self.device,
+                return_char_alignments=False,
+            )
+        finally:
+            # The align model is single-use — release its VRAM immediately
+            del model_a
+            self._free_gpu_memory()
 
         segments = aligned["segments"]
         logger.info("Transcription complete: %d segments", len(segments))
         return segments
+
+    def cleanup(self) -> None:
+        """Release the Whisper model and return its VRAM to the OS."""
+        if self.model is None:
+            return
+        logger.info("Releasing WhisperX model (device=%s)", self.device)
+        self.model = None
+        self._free_gpu_memory()
 
 
 # ═══════════════════════════════════════════════════════════

@@ -10,6 +10,10 @@ whisperx>=3.1.1
 requests>=2.31.0
 gTTS>=2.3.2
 moviepy>=2.0.0
+# numpy + Pillow ship with moviepy, but the pipeline imports them directly
+# (blurred-background resolution fitting), so pin them explicitly.
+numpy
+Pillow
 ffmpeg-python>=0.2.0
 sqlalchemy[asyncio]>=2.0.0
 asyncpg

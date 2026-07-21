@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str | None = None
     OPENAI_MODEL: str = "gpt-4o"
     OPENAI_TTS_VOICE: str = "alloy"
+    # gpt-4o-mini-tts supports emotion instructions; tts-1/tts-1-hd do not
+    OPENAI_TTS_MODEL: str = "gpt-4o-mini-tts"
     GEMINI_API_KEY: str | None = None
     GEMINI_MODEL: str = "gemini-2.0-flash"
     ASSEMBLYAI_API_KEY: str | None = None

@@ -161,6 +161,18 @@ Interactive docs at `http://localhost:8000/docs`.
 | `summarizer_env` | `local` | Summarization backend: `local`, `openai`, `gemini` |
 | `tts_env` | `local` | TTS backend: `local`, `fpt`, `openai`, `elevenlabs`, `cloud` |
 | `language` | `vi` | Target language code (ISO 639-1). The summary narration is **translated** into this language by the summarizer LLM and spoken by TTS — the source video can be in any language |
+| `resolution` | `mobile` | Export resolution preset: `mobile` (1080×1920, 9:16 — TikTok / Facebook Reels), `tablet` (1080×1350, 4:5), `square` (1080×1080, 1:1), `desktop` (1920×1080, 16:9), or `original` (keep source size) |
+| `fit` | `blur` | How the source frame fills the target aspect ratio: `blur` (blurred background, no content lost), `cover` (center-crop to fill), `contain` (letterbox with black bars) |
+
+### Upload — Mobile / Vertical for TikTok & Facebook
+
+```bash
+curl -X POST http://localhost:8000/api/v1/summarize \
+  -F "file=@my_video.mp4" \
+  -G -d "resolution=mobile" \
+     -d "fit=blur" \
+     -d "language=vi" -d "tts_env=local"
+```
 
 ### Upload — Local Pipeline
 

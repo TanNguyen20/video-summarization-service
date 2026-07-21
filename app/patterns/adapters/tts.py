@@ -29,7 +29,10 @@ class LocalTTSAdapter(TTSStrategy):
     def __init__(self, lang: str | None = None):
         self.lang = lang or settings.DEFAULT_TTS_LANG
 
-    def generate_audio(self, text: str, output_path: str) -> str:
+    def generate_audio(
+        self, text: str, output_path: str, emotion: str | None = None,
+    ) -> str:
+        # gTTS has no voice-style control; the emotion hint is ignored.
         logger.info("Generating local TTS (lang=%s, %d chars)", self.lang, len(text))
         tts = gTTS(text, lang=self.lang)
         tts.save(output_path)
@@ -57,7 +60,10 @@ class FPTCloudTTSAdapter(TTSStrategy):
         self.voice = voice
         self.url = "https://api.fpt.ai/hmi/tts/v5"
 
-    def generate_audio(self, text: str, output_path: str) -> str:
+    def generate_audio(
+        self, text: str, output_path: str, emotion: str | None = None,
+    ) -> str:
+        # FPT.AI voices have no emotion parameter; the hint is ignored.
         logger.info("Requesting FPT TTS for %d chars", len(text))
         headers = {"api-key": self.api_key}
         payload = {"text": text, "voice": self.voice, "speed": "0"}
@@ -107,16 +113,32 @@ class FPTCloudTTSAdapter(TTSStrategy):
 class OpenAITTSAdapter(TTSStrategy):
     """Generate speech audio via the OpenAI TTS API.
 
-    Supports models ``tts-1`` (fast) and ``tts-1-hd`` (high quality).
+    Supports models ``tts-1`` (fast), ``tts-1-hd`` (high quality), and
+    ``gpt-4o-mini-tts`` (steerable — supports emotion instructions).
 
     Available voices: alloy, ash, ballad, coral, echo, fable,
     onyx, nova, sage, shimmer.
     """
 
+    # Only gpt-4o-mini-tts accepts the `instructions` parameter;
+    # tts-1 / tts-1-hd reject it.
+    _INSTRUCTABLE_MODELS = ("gpt-4o-mini-tts",)
+
+    _EMOTION_INSTRUCTIONS = {
+        "neutral": "Speak in a clear, neutral tone.",
+        "happy": "Speak in a warm, cheerful, upbeat tone.",
+        "excited": "Speak with high energy and enthusiasm, at a slightly faster pace.",
+        "sad": "Speak in a soft, somber, empathetic tone, at a slightly slower pace.",
+        "serious": "Speak in a composed, authoritative, matter-of-fact tone.",
+        "tense": "Speak in an urgent, suspenseful tone with controlled intensity.",
+        "calm": "Speak in a gentle, soothing, relaxed tone.",
+        "humorous": "Speak in a playful, lighthearted tone, as if smiling.",
+    }
+
     def __init__(
         self,
         api_key: str | None = None,
-        model: str = "tts-1",
+        model: str | None = None,
         voice: str | None = None,
     ):
         try:
@@ -131,22 +153,32 @@ class OpenAITTSAdapter(TTSStrategy):
             raise ValueError("OPENAI_API_KEY is required for OpenAI TTS")
 
         self.client = OpenAI(api_key=_api_key)
-        self.model = model
+        self.model = model or settings.OPENAI_TTS_MODEL
         self.voice = voice or settings.OPENAI_TTS_VOICE
 
-    def generate_audio(self, text: str, output_path: str) -> str:
+    def generate_audio(
+        self, text: str, output_path: str, emotion: str | None = None,
+    ) -> str:
         logger.info(
-            "Generating OpenAI TTS (model=%s, voice=%s, %d chars)",
+            "Generating OpenAI TTS (model=%s, voice=%s, emotion=%s, %d chars)",
             self.model,
             self.voice,
+            emotion,
             len(text),
         )
+
+        extra_kwargs = {}
+        if emotion and self.model in self._INSTRUCTABLE_MODELS:
+            instruction = self._EMOTION_INSTRUCTIONS.get(emotion)
+            if instruction:
+                extra_kwargs["instructions"] = instruction
 
         response = self.client.audio.speech.create(
             model=self.model,
             voice=self.voice,
             input=text,
             response_format="mp3",
+            **extra_kwargs,
         )
         response.stream_to_file(output_path)
 
@@ -168,6 +200,20 @@ class ElevenLabsTTSAdapter(TTSStrategy):
 
     # Models that accept explicit language_code enforcement
     _LANGUAGE_CODE_MODELS = ("eleven_flash_v2_5", "eleven_turbo_v2_5")
+
+    # Emotion → voice settings. Lower stability + higher style makes the
+    # delivery more expressive; how strongly style is honored varies by
+    # model (multilingual_v2 responds most, flash/turbo less).
+    _EMOTION_VOICE_SETTINGS = {
+        "neutral": {"stability": 0.50, "style": 0.00},
+        "happy": {"stability": 0.40, "style": 0.40},
+        "excited": {"stability": 0.25, "style": 0.70},
+        "sad": {"stability": 0.60, "style": 0.30},
+        "serious": {"stability": 0.75, "style": 0.10},
+        "tense": {"stability": 0.35, "style": 0.55},
+        "calm": {"stability": 0.80, "style": 0.00},
+        "humorous": {"stability": 0.35, "style": 0.50},
+    }
 
     def __init__(
         self,
@@ -194,18 +240,32 @@ class ElevenLabsTTSAdapter(TTSStrategy):
         self.model_id = model_id or settings.ELEVENLABS_MODEL_ID
         self.language = language
 
-    def generate_audio(self, text: str, output_path: str) -> str:
+    def generate_audio(
+        self, text: str, output_path: str, emotion: str | None = None,
+    ) -> str:
         logger.info(
-            "Generating ElevenLabs TTS (voice=%s, model=%s, lang=%s, %d chars)",
+            "Generating ElevenLabs TTS (voice=%s, model=%s, lang=%s, emotion=%s, %d chars)",
             self.voice_id,
             self.model_id,
             self.language,
+            emotion,
             len(text),
         )
 
         convert_kwargs = {}
         if self.language and self.model_id in self._LANGUAGE_CODE_MODELS:
             convert_kwargs["language_code"] = self.language
+
+        emotion_settings = self._EMOTION_VOICE_SETTINGS.get(emotion or "")
+        if emotion_settings:
+            from elevenlabs.types import VoiceSettings
+
+            convert_kwargs["voice_settings"] = VoiceSettings(
+                stability=emotion_settings["stability"],
+                similarity_boost=0.75,
+                style=emotion_settings["style"],
+                use_speaker_boost=True,
+            )
 
         audio_generator = self.client.text_to_speech.convert(
             text=text,
